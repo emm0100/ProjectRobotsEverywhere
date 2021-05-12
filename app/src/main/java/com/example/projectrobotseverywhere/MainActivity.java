@@ -1,5 +1,9 @@
 package com.example.projectrobotseverywhere;
 
+import android.graphics.drawable.Drawable;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Bundle;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -25,31 +29,31 @@ import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.infowindow.InfoWindow;
+import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow;
 
 import java.util.ArrayList;
+
 
 public class MainActivity extends AppCompatActivity {
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
+    private final double DEFAULT_LATITUDE = 51.4484098; // in case of failure to detect location
+    private final double DEFAULT_LONGITUDE = 5.4907148;
+
     private MapView map = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_main);
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        //Toolbar toolbar = findViewById(R.id.toolbar);
+        //setSupportActionBar(toolbar);
 
-        //load/initialize the osmdroid configuration, this can be done
+        // osmdroid stuff
         Context ctx = getApplicationContext();
         Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
-        //setting this before the layout is inflated is a good idea
-        //it 'should' ensure that the map has a writable location for the map cache, even without permissions
-        //if no tiles are displayed, you can try overriding the cache path using Configuration.getInstance().setCachePath
-        //see also StorageUtils
-        //note, the load method also sets the HTTP User Agent to your application's package name, abusing osm's
-        //tile servers will get you banned based on this string
 
         //inflate and create the map
         setContentView(R.layout.activity_main);
@@ -57,18 +61,38 @@ public class MainActivity extends AppCompatActivity {
         map = findViewById(R.id.map);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
+        map.setTilesScaledToDpi(true); // makes font larger i.e. more readable
 
-        IMapController mapController = map.getController();
-        mapController.setZoom(9.5);
-        GeoPoint startPoint = new GeoPoint(51.4486098, 5.4907148);
-        mapController.setCenter(startPoint);
 
         requestPermissionsIfNecessary(new String[] {
                 // if you need to show the current location, uncomment the line below
-                // Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
         });
+
+        IMapController mapController = map.getController();
+        mapController.setZoom(15.0);
+        GeoPoint startPoint = new GeoPoint(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
+        mapController.setCenter(startPoint);
+
+
+        // Code for drawing example map marker
+        Marker startMarker = new Marker(map);
+        Drawable markerIcon_b = this.getResources().getDrawable(R.drawable.damage_b);
+        Drawable markerIcon_m = this.getResources().getDrawable(R.drawable.damage_m);
+        Drawable markerIcon_l = this.getResources().getDrawable(R.drawable.damage_l);
+        addMarkerToMapView(markerIcon_b, startPoint);
+        addMarkerToMapView(markerIcon_m, new GeoPoint(51.4496098, 5.4905348));
+        addMarkerToMapView(markerIcon_l, new GeoPoint(51.4482098, 5.4909148));
+    }
+
+    private void addMarkerToMapView(Drawable markerIcon, GeoPoint startPoint) {
+        Marker startMarker = new Marker(map);
+        startMarker.setIcon(markerIcon);
+        startMarker.setPosition(startPoint);
+        startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        map.getOverlays().add(startMarker);
     }
 
     @Override
