@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "471244495253",
+    "project_id": "projectrobotseverywhere",
+    "storage_bucket": "projectrobotseverywhere.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471244495253:android:a8f819fe5995b31d5cfe9c",
+        "android_client_info": {
+          "package_name": "com.example.projectrobotseverywhere"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "471244495253-1901v67r5b9vrunpdh0qfdop3qih7g2d.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJGN-MUGdZLYv045eyFQsZgFzUV5eQ8uA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "471244495253-1901v67r5b9vrunpdh0qfdop3qih7g2d.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
