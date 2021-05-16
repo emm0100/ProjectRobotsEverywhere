@@ -8,7 +8,10 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.StrictMode;
+import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -18,8 +21,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,10 +48,13 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity {
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
-    private final double DEFAULT_LATITUDE = 51.4484098; // in case of failure to detect location
+
+    // Default location set to TU/e
+    private final double DEFAULT_LATITUDE = 51.4484098;
     private final double DEFAULT_LONGITUDE = 5.4907148;
 
     private MapView map = null;
+    private ImageButton addMarkerButton;
     private ImageButton searchButton;
     private EditText searchInput;
     private IMapController mapController;
@@ -55,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
 
         // Allow network calls on main thread, possibly temp solution,
-        // should be async (java.util.concurrent)
+        // TODO: should be async (java.util.concurrent)
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
@@ -66,8 +75,9 @@ public class MainActivity extends AppCompatActivity {
         //inflate and create the map
         setContentView(R.layout.activity_main);
 
-
         searchInput = findViewById(R.id.searchText);
+
+        // search confirmed with done button on phone keyboard
         searchInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
@@ -88,17 +98,27 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        map = findViewById(R.id.map);
-        map.setTileSource(TileSourceFactory.MAPNIK);
-        map.setMultiTouchControls(true);
-        map.setTilesScaledToDpi(true); // makes font larger i.e. more readable
+        addMarkerButton = findViewById(R.id.addMarkerButton);
+        addMarkerButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showAddMarkerPopup(view);
+            }
+        });
 
+        // Request permissions for GPS and storage use
         requestPermissionsIfNecessary(new String[] {
                 // if you need to show the current location, uncomment the line below
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
         });
+
+        // Configure map
+        map = findViewById(R.id.map);
+        map.setTileSource(TileSourceFactory.MAPNIK);
+        map.setMultiTouchControls(true);
+        map.setTilesScaledToDpi(true); // makes font larger i.e. more readable
 
         mapController = map.getController();
         mapController.setZoom(15.0);
@@ -125,13 +145,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void searchInputConfirmed() {
         String inputLocation = searchInput.getText().toString();
-        List<Address> addressList = null;
+        List<Address> addressList;
 
         if (!inputLocation.equals("")) {
             GeocoderNominatim geocoder = new GeocoderNominatim("ProjectRobotsEverywhere");
             try {
                 addressList = geocoder.getFromLocationName(inputLocation, 1);
-
             } catch (IOException e) {
                 e.printStackTrace();
                 return;
@@ -143,8 +162,60 @@ public class MainActivity extends AppCompatActivity {
             mapController.setCenter(inputPoint);
             Toast.makeText(getApplicationContext(),address.getLatitude()+" "+address.getLongitude(),Toast.LENGTH_LONG).show();
         }
+    }
 
+    private void showAddMarkerPopup(View view) {
+        // inflate the layout of the popup window
+        LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
+        View popupView = inflater.inflate(R.layout.add_marker_popup, null);
 
+        // create the popup window
+        int width = LinearLayout.LayoutParams.WRAP_CONTENT;
+        int height = LinearLayout.LayoutParams.WRAP_CONTENT;
+        final PopupWindow popupWindow = new PopupWindow(popupView, width, height, true);
+
+        // show the popup window
+        popupWindow.showAtLocation(view, Gravity.TOP, 0, 200);
+
+        Button closeButton = popupView.findViewById(R.id.closeButton);
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                popupWindow.dismiss();
+            }
+        });
+
+        EditText severityInput = popupView.findViewById(R.id.severityInput);
+        EditText latitudeInput = popupView.findViewById(R.id.latitudeInput);
+        EditText longitudeInput = popupView.findViewById(R.id.longitudeInput);
+        EditText commentInput = popupView.findViewById(R.id.commentInput);
+
+        Button confirmButton = popupView.findViewById(R.id.confirmButton);
+        confirmButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String severityStr = severityInput.getText().toString();
+                String latitudeStr = latitudeInput.getText().toString();
+                String longitudeStr = longitudeInput.getText().toString();
+
+                if (severityStr.equals("")) {
+                    return; // TODO: add error message, no empty input allowed
+                }
+                if (latitudeStr.equals("")) {
+                    return; // TODO: add error message, no empty input allowed
+                }
+                if (longitudeStr.equals("")) {
+                    return; // TODO: add error message, no empty input allowed
+                }
+
+                // TODO: send these values to database
+                Double severity = Double.parseDouble(severityStr);
+                Double latitude = Double.parseDouble(latitudeStr);
+                Double longitude = Double.parseDouble(longitudeStr);
+
+                String comment = commentInput.getText().toString();
+            }
+        });
     }
 
     @Override
@@ -165,7 +236,6 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_settings) {
             return true;
         }
-
         return super.onOptionsItemSelected(item);
     }
 
@@ -219,6 +289,4 @@ public class MainActivity extends AppCompatActivity {
                     REQUEST_PERMISSIONS_REQUEST_CODE);
         }
     }
-
-
 }
