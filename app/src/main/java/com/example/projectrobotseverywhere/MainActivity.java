@@ -1,17 +1,14 @@
 package com.example.projectrobotseverywhere;
 
 import android.graphics.drawable.Drawable;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
+import android.location.Address;
 import android.os.Bundle;
 
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
 
+import android.os.StrictMode;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,20 +17,26 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import org.osmdroid.api.IMapController;
+import org.osmdroid.bonuspack.location.GeocoderNominatim;
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
-import org.osmdroid.views.overlay.infowindow.InfoWindow;
-import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -43,13 +46,18 @@ public class MainActivity extends AppCompatActivity {
     private final double DEFAULT_LONGITUDE = 5.4907148;
 
     private MapView map = null;
+    private ImageButton searchButton;
+    private EditText searchInput;
+    private IMapController mapController;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        //Toolbar toolbar = findViewById(R.id.toolbar);
-        //setSupportActionBar(toolbar);
+        // Allow network calls on main thread, possibly temp solution,
+        // should be async (java.util.concurrent)
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
 
         // osmdroid stuff
         Context ctx = getApplicationContext();
@@ -58,11 +66,32 @@ public class MainActivity extends AppCompatActivity {
         //inflate and create the map
         setContentView(R.layout.activity_main);
 
+
+        searchInput = findViewById(R.id.searchText);
+        searchInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    searchInputConfirmed();
+                    return true;
+                }
+                return false;
+            }
+        });
+
+        // Search button onclick
+        searchButton = findViewById(R.id.searchButton);
+        searchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                searchInputConfirmed();
+            }
+        });
+
         map = findViewById(R.id.map);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
         map.setTilesScaledToDpi(true); // makes font larger i.e. more readable
-
 
         requestPermissionsIfNecessary(new String[] {
                 // if you need to show the current location, uncomment the line below
@@ -71,14 +100,13 @@ public class MainActivity extends AppCompatActivity {
                 Manifest.permission.WRITE_EXTERNAL_STORAGE
         });
 
-        IMapController mapController = map.getController();
+        mapController = map.getController();
         mapController.setZoom(15.0);
         GeoPoint startPoint = new GeoPoint(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
         mapController.setCenter(startPoint);
 
 
-        // Code for drawing example map marker
-        Marker startMarker = new Marker(map);
+        // Temporary code for drawing example map marker
         Drawable markerIcon_b = this.getResources().getDrawable(R.drawable.damage_b);
         Drawable markerIcon_m = this.getResources().getDrawable(R.drawable.damage_m);
         Drawable markerIcon_l = this.getResources().getDrawable(R.drawable.damage_l);
@@ -93,6 +121,30 @@ public class MainActivity extends AppCompatActivity {
         startMarker.setPosition(startPoint);
         startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
         map.getOverlays().add(startMarker);
+    }
+
+    private void searchInputConfirmed() {
+        String inputLocation = searchInput.getText().toString();
+        List<Address> addressList = null;
+
+        if (!inputLocation.equals("")) {
+            GeocoderNominatim geocoder = new GeocoderNominatim("ProjectRobotsEverywhere");
+            try {
+                addressList = geocoder.getFromLocationName(inputLocation, 1);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                return;
+            }
+            Address address = addressList.get(0);
+            double inputLatitude = address.getLatitude();
+            double inputLongitude = address.getLongitude();
+            GeoPoint inputPoint = new GeoPoint(inputLatitude, inputLongitude);
+            mapController.setCenter(inputPoint);
+            Toast.makeText(getApplicationContext(),address.getLatitude()+" "+address.getLongitude(),Toast.LENGTH_LONG).show();
+        }
+
+
     }
 
     @Override
