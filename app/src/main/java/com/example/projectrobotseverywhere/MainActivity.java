@@ -6,13 +6,11 @@ import android.os.Bundle;
 
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.StrictMode;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Menu;
@@ -28,21 +26,15 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.firestore.DocumentReference;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import org.osmdroid.api.IMapController;
 import org.osmdroid.bonuspack.location.GeocoderNominatim;
@@ -57,6 +49,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static android.content.ContentValues.TAG;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -99,33 +93,20 @@ public class MainActivity extends AppCompatActivity {
         searchInput = findViewById(R.id.searchText);
 
         // search confirmed with done button on phone keyboard
-        searchInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    searchInputConfirmed();
-                    return true;
-                }
-                return false;
+        searchInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                searchInputConfirmed();
+                return true;
             }
+            return false;
         });
 
         // Search button onclick
         searchButton = findViewById(R.id.searchButton);
-        searchButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                searchInputConfirmed();
-            }
-        });
+        searchButton.setOnClickListener(view -> searchInputConfirmed());
 
         addMarkerButton = findViewById(R.id.addMarkerButton);
-        addMarkerButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showAddMarkerPopup(view);
-            }
-        });
+        addMarkerButton.setOnClickListener(view -> showAddMarkerPopup(view));
 
         // Request permissions for GPS and storage use
         requestPermissionsIfNecessary(new String[] {
@@ -147,14 +128,47 @@ public class MainActivity extends AppCompatActivity {
         GeoPoint startPoint = new GeoPoint(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
         mapController.setCenter(startPoint);
 
+        getMarkers();
+    }
 
-        // Temporary code for drawing example map marker
-        Drawable markerIcon_b = this.getResources().getDrawable(R.drawable.damage_b);
-        Drawable markerIcon_m = this.getResources().getDrawable(R.drawable.damage_m);
-        Drawable markerIcon_l = this.getResources().getDrawable(R.drawable.damage_l);
-        addMarkerToMapView(markerIcon_b, startPoint);
-        addMarkerToMapView(markerIcon_m, new GeoPoint(51.4496098, 5.4905348));
-        addMarkerToMapView(markerIcon_l, new GeoPoint(51.4482098, 5.4909148));
+    private void getMarkers() {
+        map.getOverlays().clear();
+        Map<String, DamageMarker> damageMarkers = new HashMap<>();
+        firebaseFirestore.collection("markers")
+                .get()
+                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
+                        if (task.isSuccessful()) {
+                            for (QueryDocumentSnapshot document : task.getResult()) {
+                                DamageMarker damageMarker = new DamageMarker(
+                                        (Double) document.get("severity"),
+                                        (Double) document.get("latitude"),
+                                        (Double) document.get("longitude"),
+                                        (String) document.get("comment"));
+                                damageMarkers.put(document.getId(), damageMarker);
+                            }
+                            drawMarkers(damageMarkers);
+                        } else {
+                            Log.w(TAG, "Error getting documents.", task.getException());
+                        }
+                    }
+                });
+    }
+
+    private void drawMarkers(Map<String, DamageMarker> damageMarkers) {
+        for (DamageMarker damageMarker: damageMarkers.values()) {
+            Double severity = damageMarker.getSeverity();
+            Drawable markerIcon = severity > 7 ? this.getDrawable(R.drawable.damage_b) :
+                    (severity > 3 ? this.getDrawable(R.drawable.damage_m) :
+                            this.getDrawable(R.drawable.damage_l));
+            GeoPoint location = new GeoPoint(damageMarker.getLatitude(), damageMarker.getLongitude());
+            System.out.println("Severity: " + severity);
+            System.out.println("Lat: " + damageMarker.getLatitude());
+            System.out.println("Long: " + damageMarker.getLongitude());
+            addMarkerToMapView(markerIcon, location);
+            map.invalidate();
+        }
     }
 
     private void addMarkerToMapView(Drawable markerIcon, GeoPoint startPoint) {
@@ -200,12 +214,7 @@ public class MainActivity extends AppCompatActivity {
         popupWindow.showAtLocation(view, Gravity.TOP, 0, 200);
 
         Button closeButton = popupView.findViewById(R.id.closeButton);
-        closeButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                popupWindow.dismiss();
-            }
-        });
+        closeButton.setOnClickListener(view1 -> popupWindow.dismiss());
 
         EditText severityInput = popupView.findViewById(R.id.severityInput);
         EditText latitudeInput = popupView.findViewById(R.id.latitudeInput);

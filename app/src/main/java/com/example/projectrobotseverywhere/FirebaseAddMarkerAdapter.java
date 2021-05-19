@@ -21,12 +21,14 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static android.content.ContentValues.TAG;
 
 public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
     private Map<String, DamageMarker> markers;
-    private FirebaseFirestore firebaseFirestore;
+    private final FirebaseFirestore firebaseFirestore;
 
     public FirebaseAddMarkerAdapter() {
         super();
