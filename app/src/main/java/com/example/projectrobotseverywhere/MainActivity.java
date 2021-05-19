@@ -26,6 +26,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
+import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -65,8 +66,6 @@ public class MainActivity extends AppCompatActivity {
     private final double DEFAULT_LONGITUDE = 5.4907148;
 
     private MapView map = null;
-    private ImageButton addMarkerButton;
-    private ImageButton searchButton;
     private EditText searchInput;
     private IMapController mapController;
 
@@ -102,10 +101,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Search button onclick
-        searchButton = findViewById(R.id.searchButton);
+        ImageButton searchButton = findViewById(R.id.searchButton);
         searchButton.setOnClickListener(view -> searchInputConfirmed());
 
-        addMarkerButton = findViewById(R.id.addMarkerButton);
+        ImageButton addMarkerButton = findViewById(R.id.addMarkerButton);
         addMarkerButton.setOnClickListener(view -> showAddMarkerPopup(view));
 
         // Request permissions for GPS and storage use
@@ -113,8 +112,7 @@ public class MainActivity extends AppCompatActivity {
                 // if you need to show the current location, uncomment the line below
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                //Manifest.permission.INTERNET
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
         });
 
         // Configure map
@@ -196,7 +194,6 @@ public class MainActivity extends AppCompatActivity {
             double inputLongitude = address.getLongitude();
             GeoPoint inputPoint = new GeoPoint(inputLatitude, inputLongitude);
             mapController.setCenter(inputPoint);
-            //Toast.makeText(getApplicationContext(),address.getLatitude()+" "+address.getLongitude(),Toast.LENGTH_LONG).show();
         }
     }
 
@@ -230,16 +227,24 @@ public class MainActivity extends AppCompatActivity {
                 String longitudeStr = longitudeInput.getText().toString();
 
                 if (severityStr.equals("")) {
-                    return; // TODO: add error message, no empty input allowed
+                    Toast.makeText(view.getContext(),
+                            "Please enter a value for severity.",
+                            Toast.LENGTH_LONG).show();
+                    return;
                 }
                 if (latitudeStr.equals("")) {
-                    return; // TODO: add error message, no empty input allowed
+                    Toast.makeText(view.getContext(),
+                            "Please enter a value for latitude.",
+                            Toast.LENGTH_LONG).show();
+                    return;
                 }
                 if (longitudeStr.equals("")) {
-                    return; // TODO: add error message, no empty input allowed
+                    Toast.makeText(view.getContext(),
+                            "Please enter a value for longitude.",
+                            Toast.LENGTH_LONG).show();
+                    return;
                 }
 
-                // TODO: send these values to database
                 Double severity = Double.parseDouble(severityStr);
                 Double latitude = Double.parseDouble(latitudeStr);
                 Double longitude = Double.parseDouble(longitudeStr);
@@ -247,7 +252,12 @@ public class MainActivity extends AppCompatActivity {
                 String comment = commentInput.getText().toString();
 
                 DamageMarker damageMarker = new DamageMarker(severity, latitude, longitude, comment);
-                firebaseAddMarkerAdapter.addDamageMarker(damageMarker);
+                Map<String, DamageMarker> newMarker = new HashMap<>();
+                newMarker.put("", damageMarker);
+
+                firebaseAddMarkerAdapter.addDamageMarker(damageMarker, view);
+                drawMarkers(newMarker);
+                popupWindow.dismiss();
             }
         });
     }

@@ -1,6 +1,8 @@
 package com.example.projectrobotseverywhere;
 
 import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
@@ -79,18 +81,22 @@ public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
      *
      * @param damageMarker the marker to be pushed
      */
-    public void addDamageMarker(DamageMarker damageMarker) {
+    public void addDamageMarker(DamageMarker damageMarker, View view) {
         firebaseFirestore.collection("markers")
                 .document(String.valueOf(Calendar.getInstance().getTimeInMillis()))
                 .set(damageMarker).addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(Void unused) {
-                        System.out.println("Marker successfully added");
+                        Toast.makeText(view.getContext(),
+                                  "New marker successfully added",
+                                       Toast.LENGTH_LONG).show();
                     }
                 }).addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull @NotNull Exception e) {
-                        System.out.println("Failed to add marker, error: " + e);
+                        Toast.makeText(view.getContext(),
+                                  "Something went wrong",
+                                       Toast.LENGTH_LONG).show();
                     }
                 });
     }
