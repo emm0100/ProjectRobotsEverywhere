@@ -5,13 +5,15 @@ import android.location.Address;
 import android.os.Bundle;
 
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.StrictMode;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -32,6 +34,16 @@ import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import org.osmdroid.api.IMapController;
 import org.osmdroid.bonuspack.location.GeocoderNominatim;
 import org.osmdroid.config.Configuration;
@@ -42,10 +54,15 @@ import org.osmdroid.views.overlay.Marker;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
+
+    private FirebaseFirestore firebaseFirestore;
+    private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
 
@@ -62,6 +79,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // init firebase stuff
+        firebaseFirestore = FirebaseFirestore.getInstance();
+        firebaseAddMarkerAdapter = new FirebaseAddMarkerAdapter();
 
         // Allow network calls on main thread, possibly temp solution,
         // TODO: should be async (java.util.concurrent)
@@ -111,7 +132,8 @@ public class MainActivity extends AppCompatActivity {
                 // if you need to show the current location, uncomment the line below
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                //Manifest.permission.INTERNET
         });
 
         // Configure map
@@ -160,7 +182,7 @@ public class MainActivity extends AppCompatActivity {
             double inputLongitude = address.getLongitude();
             GeoPoint inputPoint = new GeoPoint(inputLatitude, inputLongitude);
             mapController.setCenter(inputPoint);
-            Toast.makeText(getApplicationContext(),address.getLatitude()+" "+address.getLongitude(),Toast.LENGTH_LONG).show();
+            //Toast.makeText(getApplicationContext(),address.getLatitude()+" "+address.getLongitude(),Toast.LENGTH_LONG).show();
         }
     }
 
@@ -214,6 +236,9 @@ public class MainActivity extends AppCompatActivity {
                 Double longitude = Double.parseDouble(longitudeStr);
 
                 String comment = commentInput.getText().toString();
+
+                DamageMarker damageMarker = new DamageMarker(severity, latitude, longitude, comment);
+                firebaseAddMarkerAdapter.addDamageMarker(damageMarker);
             }
         });
     }
