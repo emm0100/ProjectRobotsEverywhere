@@ -59,7 +59,6 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     // TODO: add legend maybe
     // TODO: allow editing of markers
 
-    private FirebaseFirestore firebaseFirestore;
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
@@ -77,11 +76,11 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // init firebase stuff
-        firebaseFirestore = FirebaseFirestore.getInstance();
+        // init firebase adapter
         firebaseAddMarkerAdapter = new FirebaseAddMarkerAdapter();
         firebaseAddMarkerAdapter.attachObserver(this);
 
+        // init map of all DamageMarkers in the database
         damageMarkers = new HashMap<>();
 
         // Allow network calls on main thread, possibly temp solution,
@@ -90,14 +89,15 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         StrictMode.setThreadPolicy(policy);
 
         // osmdroid stuff
-        Context ctx = getApplicationContext();
-        Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
+        Context context = getApplicationContext();
+        Configuration.getInstance()
+                .load(context, PreferenceManager.getDefaultSharedPreferences(context));
 
         //inflate and create the map
         setContentView(R.layout.activity_main);
 
         // Request permissions for GPS and storage use
-        requestPermissionsIfNecessary(new String[] {
+        requestPermissions(new String[] {
                 // if you need to show the current location, uncomment the line below
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
@@ -122,8 +122,17 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         ImageButton addMarkerButton = findViewById(R.id.addMarkerButton);
         addMarkerButton.setOnClickListener(view -> showAddMarkerPopup(view));
 
-
         // Configure map
+        initializeMap();
+
+        // retrieve markers from database
+        getMarkers();
+    }
+
+    /**
+     * Handles setting all values for the MapView as required.
+     */
+    private void initializeMap() {
         map = findViewById(R.id.map);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
@@ -133,17 +142,23 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         mapController.setZoom(15.0);
         GeoPoint startPoint = new GeoPoint(DEFAULT_LATITUDE, DEFAULT_LONGITUDE);
         mapController.setCenter(startPoint);
-
-        getMarkers();
     }
 
+    /**
+     * Retrieve the list of all markers in the database from the FirebaseAdapter.
+     */
     private void getMarkers() {
         damageMarkers.clear();
         damageMarkers = firebaseAddMarkerAdapter.getMarkers();
-        updateMarkers(damageMarkers);
+        updateMarkers();
     }
 
-    private void updateMarkers(Map<String, DamageMarker> damageMarkers) {
+    /**
+     * Draws all markers in the database on the map.
+     * Clears all markers currently on the map.
+     * Marker colour depends on severity.
+     */
+    private void updateMarkers() {
         map.getOverlays().clear();
         for (DamageMarker damageMarker: damageMarkers.values()) {
             Double severity = damageMarker.getSeverity();
@@ -159,14 +174,25 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         }
     }
 
-    private void addMarkerToMapView(Drawable markerIcon, GeoPoint startPoint) {
+    /**
+     * Draws a marker on the map.
+     *
+     * @param markerIcon The Drawable that should be used for this marker.
+     * @param location The geolocation of the marker, needed for positioning on the map.
+     */
+    private void addMarkerToMapView(Drawable markerIcon, GeoPoint location) {
         Marker startMarker = new Marker(map);
         startMarker.setIcon(markerIcon);
-        startMarker.setPosition(startPoint);
+        startMarker.setPosition(location);
         startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
         map.getOverlays().add(startMarker);
     }
 
+    /**
+     * Handles searching for a specific location.
+     * Uses GeocoderNominatim to convert address or postal code input to a geolocation.
+     * Focuses the map on the found coordinates.
+     */
     private void searchInputConfirmed() {
         String inputLocation = searchInput.getText().toString();
         List<Address> addressList;
@@ -187,6 +213,11 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         }
     }
 
+    /**
+     * Handles creating and showing the popup window used to add new markers to the database.
+     *
+     * @param view reference to current interface component
+     */
     private void showAddMarkerPopup(View view) {
         // inflate the layout of the popup window
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
@@ -198,16 +229,19 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         final PopupWindow popupWindow = new PopupWindow(popupView, width, height, true);
 
         // show the popup window
-        popupWindow.showAtLocation(view, Gravity.TOP, 0, 200);
+        popupWindow.showAtLocation(view, Gravity.TOP, 0, 200); // TODO: offset shouldn't be hardcoded
 
+        // [X]-button dismisses the window
         Button closeButton = popupView.findViewById(R.id.closeButton);
         closeButton.setOnClickListener(view1 -> popupWindow.dismiss());
 
+        // Get all input elements
         EditText severityInput = popupView.findViewById(R.id.severityInput);
         EditText latitudeInput = popupView.findViewById(R.id.latitudeInput);
         EditText longitudeInput = popupView.findViewById(R.id.longitudeInput);
         EditText commentInput = popupView.findViewById(R.id.commentInput);
 
+        // Handle confirming the addition
         Button confirmButton = popupView.findViewById(R.id.confirmButton);
         confirmButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -238,15 +272,12 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                 Double severity = Double.parseDouble(severityStr);
                 Double latitude = Double.parseDouble(latitudeStr);
                 Double longitude = Double.parseDouble(longitudeStr);
-
                 String comment = commentInput.getText().toString();
 
+                // Create new DamageMarker and add to database
                 DamageMarker damageMarker = new DamageMarker(severity, latitude, longitude, comment);
-                Map<String, DamageMarker> newMarker = new HashMap<>();
-                newMarker.put("", damageMarker);
-
                 firebaseAddMarkerAdapter.addDamageMarker(damageMarker, view);
-                //updateMarkers(newMarker);
+
                 popupWindow.dismiss();
             }
         });
@@ -258,8 +289,9 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
 
         damageMarkers = (Map<String, DamageMarker>) arg;
 
+        // make sure the data was correctly retrieved
         if (damageMarkers != null) {
-            updateMarkers(damageMarkers);
+            updateMarkers();
         }
     }
 
@@ -319,7 +351,12 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         }
     }
 
-    private void requestPermissionsIfNecessary(String[] permissions) {
+    /**
+     * Request permission from the user to access GPS data and write to storage
+     *
+     * @param permissions Array of permissions to be requested
+     */
+    private void requestPermissions(String[] permissions) {
         ArrayList<String> permissionsToRequest = new ArrayList<>();
         for (String permission : permissions) {
             if (ContextCompat.checkSelfPermission(this, permission)
