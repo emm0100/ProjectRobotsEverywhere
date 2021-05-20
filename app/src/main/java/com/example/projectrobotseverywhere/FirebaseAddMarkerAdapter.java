@@ -24,7 +24,7 @@ import java.util.Map;
 import static android.content.ContentValues.TAG;
 
 public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
-    private Map<String, DamageMarker> markers;
+    private final Map<String, DamageMarker> markers;
     private final FirebaseFirestore firebaseFirestore;
 
     public FirebaseAddMarkerAdapter() {
@@ -68,12 +68,12 @@ public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
      *
      * @return a map containing all markers in the database with ID as key
      */
-    public Map getMarkers(){
+    public Map<String, DamageMarker> getMarkers(){
         return markers;
     }
 
     /**
-     * Push marker to the FireBase database.
+     * Push marker to the Firebase FireStore.
      *
      * @param damageMarker the marker to be pushed
      */
@@ -93,6 +93,33 @@ public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
                         Toast.makeText(view.getContext(),
                                   "Something went wrong",
                                        Toast.LENGTH_LONG).show();
+                    }
+                });
+    }
+
+    /**
+     * Delete the DamageMarker with the given ID from the database
+     *
+     * @param markerId The ID of the marker to be deleted
+     */
+    public void deleteDamageMarker(String markerId, View view) {
+        firebaseFirestore.collection("markers")
+                .document(markerId)
+                .delete()
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void unused) {
+                        Toast.makeText(view.getContext(),
+                                "Marker successfully deleted",
+                                Toast.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull @NotNull Exception e) {
+                        Toast.makeText(view.getContext(),
+                                "Something went wrong",
+                                Toast.LENGTH_LONG).show();
                     }
                 });
     }

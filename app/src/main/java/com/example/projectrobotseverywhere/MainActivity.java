@@ -44,6 +44,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.infowindow.InfoWindow;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
 
     // TODO: add legend maybe
     // TODO: allow editing of markers
+    // TODO: maybe add filters by severity / date
 
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
@@ -71,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private EditText searchInput;
     private IMapController mapController;
     private Map<String, DamageMarker> damageMarkers;
+    private Drawable[] markerIcons = new Drawable[11];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,7 +86,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         // init map of all DamageMarkers in the database
         damageMarkers = new HashMap<>();
 
-        // Allow network calls on main thread, possibly temp solution,
+        // Allow network calls on main thread, temp solution
         // TODO: should be async (java.util.concurrent)
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
@@ -126,6 +129,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         initializeMap();
 
         // retrieve markers from database
+        initializeMarkerIcons();
         getMarkers();
     }
 
@@ -144,6 +148,20 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         mapController.setCenter(startPoint);
     }
 
+    private void initializeMarkerIcons() {
+        markerIcons[0] = this.getDrawable(R.drawable.damage_0);
+        markerIcons[1] = this.getDrawable(R.drawable.damage_1);
+        markerIcons[2] = this.getDrawable(R.drawable.damage_2);
+        markerIcons[3] = this.getDrawable(R.drawable.damage_3);
+        markerIcons[4] = this.getDrawable(R.drawable.damage_4);
+        markerIcons[5] = this.getDrawable(R.drawable.damage_5);
+        markerIcons[6] = this.getDrawable(R.drawable.damage_6);
+        markerIcons[7] = this.getDrawable(R.drawable.damage_7);
+        markerIcons[8] = this.getDrawable(R.drawable.damage_8);
+        markerIcons[9] = this.getDrawable(R.drawable.damage_9);
+        markerIcons[10] = this.getDrawable(R.drawable.damage_10);
+    }
+
     /**
      * Retrieve the list of all markers in the database from the FirebaseAdapter.
      */
@@ -160,16 +178,14 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
      */
     private void updateMarkers() {
         map.getOverlays().clear();
-        for (DamageMarker damageMarker: damageMarkers.values()) {
+        for (Map.Entry<String, DamageMarker> entry: damageMarkers.entrySet()) {
+            DamageMarker damageMarker = entry.getValue();
+            String markerID = entry.getKey();
+
             Double severity = damageMarker.getSeverity();
-            Drawable markerIcon = severity > 7 ? this.getDrawable(R.drawable.damage_b) :
-                    (severity > 3 ? this.getDrawable(R.drawable.damage_m) :
-                            this.getDrawable(R.drawable.damage_l));
+            Drawable markerIcon = markerIcons[(int)Math.round(severity)];
             GeoPoint location = new GeoPoint(damageMarker.getLatitude(), damageMarker.getLongitude());
-            System.out.println("Severity: " + severity);
-            System.out.println("Lat: " + damageMarker.getLatitude());
-            System.out.println("Long: " + damageMarker.getLongitude());
-            addMarkerToMapView(markerIcon, location);
+            addMarkerToMapView(markerIcon, location, damageMarker, markerID);
             map.invalidate();
         }
     }
@@ -180,12 +196,24 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
      * @param markerIcon The Drawable that should be used for this marker.
      * @param location The geolocation of the marker, needed for positioning on the map.
      */
-    private void addMarkerToMapView(Drawable markerIcon, GeoPoint location) {
-        Marker startMarker = new Marker(map);
-        startMarker.setIcon(markerIcon);
-        startMarker.setPosition(location);
-        startMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
-        map.getOverlays().add(startMarker);
+    private void addMarkerToMapView(Drawable markerIcon, GeoPoint location, DamageMarker damageMarker, String markerID) {
+        Marker marker = new Marker(map);
+        marker.setIcon(markerIcon);
+        marker.setPosition(location);
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+
+        InfoWindow infoWindow = new DamageMarkerInfoWindow(map, firebaseAddMarkerAdapter); //??/
+        marker.setInfoWindow(infoWindow);
+        marker.setInfoWindowAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_TOP);
+        marker.setId(markerID);
+        marker.setOnMarkerClickListener(new Marker.OnMarkerClickListener() {
+            @Override
+            public boolean onMarkerClick(Marker marker, MapView mapView) {
+                marker.showInfoWindow();
+                return true;
+            }
+        });
+        map.getOverlays().add(marker);
     }
 
     /**
