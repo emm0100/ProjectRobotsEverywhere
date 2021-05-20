@@ -54,7 +54,10 @@ import java.util.Map;
 import static android.content.ContentValues.TAG;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements FirebaseObserver {
+
+    // TODO: add legend maybe
+    // TODO: allow editing of markers
 
     private FirebaseFirestore firebaseFirestore;
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
@@ -68,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private MapView map = null;
     private EditText searchInput;
     private IMapController mapController;
+    private Map<String, DamageMarker> damageMarkers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +80,9 @@ public class MainActivity extends AppCompatActivity {
         // init firebase stuff
         firebaseFirestore = FirebaseFirestore.getInstance();
         firebaseAddMarkerAdapter = new FirebaseAddMarkerAdapter();
+        firebaseAddMarkerAdapter.attachObserver(this);
+
+        damageMarkers = new HashMap<>();
 
         // Allow network calls on main thread, possibly temp solution,
         // TODO: should be async (java.util.concurrent)
@@ -88,6 +95,14 @@ public class MainActivity extends AppCompatActivity {
 
         //inflate and create the map
         setContentView(R.layout.activity_main);
+
+        // Request permissions for GPS and storage use
+        requestPermissionsIfNecessary(new String[] {
+                // if you need to show the current location, uncomment the line below
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                // WRITE_EXTERNAL_STORAGE is required in order to show the map
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        });
 
         searchInput = findViewById(R.id.searchText);
 
@@ -107,13 +122,6 @@ public class MainActivity extends AppCompatActivity {
         ImageButton addMarkerButton = findViewById(R.id.addMarkerButton);
         addMarkerButton.setOnClickListener(view -> showAddMarkerPopup(view));
 
-        // Request permissions for GPS and storage use
-        requestPermissionsIfNecessary(new String[] {
-                // if you need to show the current location, uncomment the line below
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                // WRITE_EXTERNAL_STORAGE is required in order to show the map
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-        });
 
         // Configure map
         map = findViewById(R.id.map);
@@ -130,31 +138,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getMarkers() {
-        map.getOverlays().clear();
-        Map<String, DamageMarker> damageMarkers = new HashMap<>();
-        firebaseFirestore.collection("markers")
-                .get()
-                .addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<QuerySnapshot> task) {
-                        if (task.isSuccessful()) {
-                            for (QueryDocumentSnapshot document : task.getResult()) {
-                                DamageMarker damageMarker = new DamageMarker(
-                                        (Double) document.get("severity"),
-                                        (Double) document.get("latitude"),
-                                        (Double) document.get("longitude"),
-                                        (String) document.get("comment"));
-                                damageMarkers.put(document.getId(), damageMarker);
-                            }
-                            drawMarkers(damageMarkers);
-                        } else {
-                            Log.w(TAG, "Error getting documents.", task.getException());
-                        }
-                    }
-                });
+        damageMarkers.clear();
+        damageMarkers = firebaseAddMarkerAdapter.getMarkers();
+        updateMarkers(damageMarkers);
     }
 
-    private void drawMarkers(Map<String, DamageMarker> damageMarkers) {
+    private void updateMarkers(Map<String, DamageMarker> damageMarkers) {
+        map.getOverlays().clear();
         for (DamageMarker damageMarker: damageMarkers.values()) {
             Double severity = damageMarker.getSeverity();
             Drawable markerIcon = severity > 7 ? this.getDrawable(R.drawable.damage_b) :
@@ -256,11 +246,23 @@ public class MainActivity extends AppCompatActivity {
                 newMarker.put("", damageMarker);
 
                 firebaseAddMarkerAdapter.addDamageMarker(damageMarker, view);
-                drawMarkers(newMarker);
+                //updateMarkers(newMarker);
                 popupWindow.dismiss();
             }
         });
     }
+
+    @Override
+    public void firebaseUpdate(FirebaseAdapter adapter, Object arg) {
+        if (!(adapter instanceof FirebaseAddMarkerAdapter)) { return; }
+
+        damageMarkers = (Map<String, DamageMarker>) arg;
+
+        if (damageMarkers != null) {
+            updateMarkers(damageMarkers);
+        }
+    }
+
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
