@@ -3,11 +3,18 @@ package com.example.projectrobotseverywhere;
 import java.io.Serializable;
 
 public class DamageMarker implements Serializable {
-    private Double severity;
-    private Double latitude;
-    private Double longitude;
-    private String comment;
+    private final Double severity;
+    private final Double latitude;
+    private final Double longitude;
+    private final String comment;
 
+    /**
+     * Construct a new DamageMarker object.
+     * @param severity Severity of the damage
+     * @param latitude Latitude coordinate
+     * @param longitude Longitude coordinate
+     * @param comment Optional comment, empty string if not available
+     */
     public DamageMarker(Double severity, Double latitude, Double longitude, String comment){
         this.severity = severity;
         this.latitude = latitude;

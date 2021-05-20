@@ -50,11 +50,16 @@ public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
                         }
                         markers.clear();
                         for (QueryDocumentSnapshot document : value) {
+                            // TODO: make this more robust
+                            String severity = document.get("severity").toString();
+                            String latitude = document.get("latitude").toString();
+                            String longitude = document.get("longitude").toString();
+
                             DamageMarker damageMarker = new DamageMarker(
-                                    (Double) document.get("severity"),
-                                    (Double) document.get("latitude"),
-                                    (Double) document.get("longitude"),
-                                    (String) document.get("comment"));
+                                    Double.parseDouble(severity),
+                                    Double.parseDouble(latitude),
+                                    Double.parseDouble(longitude),
+                                    document.get("comment").toString());
                             markers.put(document.getId(), damageMarker);
                         }
                         // notify attached observers that something has changed

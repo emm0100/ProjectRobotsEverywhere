@@ -20,6 +20,7 @@ import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
@@ -58,7 +59,6 @@ import static android.content.ContentValues.TAG;
 public class MainActivity extends AppCompatActivity implements FirebaseObserver {
 
     // TODO: add legend maybe
-    // TODO: allow editing of markers
     // TODO: maybe add filters by severity / date
 
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private EditText searchInput;
     private IMapController mapController;
     private Map<String, DamageMarker> damageMarkers;
-    private Drawable[] markerIcons = new Drawable[11];
+    private final Drawable[] markerIcons = new Drawable[11];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,7 +123,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         searchButton.setOnClickListener(view -> searchInputConfirmed());
 
         ImageButton addMarkerButton = findViewById(R.id.addMarkerButton);
-        addMarkerButton.setOnClickListener(view -> showAddMarkerPopup(view));
+        addMarkerButton.setOnClickListener(this::showAddMarkerPopup);
 
         // Configure map
         initializeMap();
@@ -202,7 +202,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         marker.setPosition(location);
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
 
-        InfoWindow infoWindow = new DamageMarkerInfoWindow(map, firebaseAddMarkerAdapter); //??/
+        InfoWindow infoWindow = new DamageMarkerInfoWindow(map, firebaseAddMarkerAdapter);
         marker.setInfoWindow(infoWindow);
         marker.setInfoWindowAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_TOP);
         marker.setId(markerID);
@@ -249,7 +249,8 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private void showAddMarkerPopup(View view) {
         // inflate the layout of the popup window
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
-        View popupView = inflater.inflate(R.layout.add_marker_popup, null);
+        View popupView = inflater.inflate(R.layout.add_marker_popup,
+                                          (ViewGroup) findViewById(android.R.id.content));
 
         // create the popup window
         int width = LinearLayout.LayoutParams.WRAP_CONTENT;
@@ -312,15 +313,13 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     }
 
     @Override
-    public void firebaseUpdate(FirebaseAdapter adapter, Object arg) {
+    public void firebaseUpdate(FirebaseAdapter adapter, Map<String, DamageMarker> damageMarkerMap) {
         if (!(adapter instanceof FirebaseAddMarkerAdapter)) { return; }
 
-        damageMarkers = (Map<String, DamageMarker>) arg;
+        damageMarkers = damageMarkerMap;
 
         // make sure the data was correctly retrieved
-        if (damageMarkers != null) {
-            updateMarkers();
-        }
+        if (damageMarkers != null) { updateMarkers(); }
     }
 
 
