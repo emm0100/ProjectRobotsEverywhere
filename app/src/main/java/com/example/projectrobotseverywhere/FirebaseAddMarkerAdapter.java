@@ -50,16 +50,33 @@ public class FirebaseAddMarkerAdapter extends FirebaseAdapter {
                         }
                         markers.clear();
                         for (QueryDocumentSnapshot document : value) {
-                            // TODO: make this more robust
-                            String severity = document.get("severity").toString();
-                            String latitude = document.get("latitude").toString();
-                            String longitude = document.get("longitude").toString();
+                            Object severityObj = document.get("severity");
+                            Object latitudeObj = document.get("latitude");
+                            Object longitudeObj = document.get("longitude");
+                            Object commentObj = document.get("comment");
+
+                            // Skip the document if any of these values are non-existent
+                            if (severityObj == null ||
+                                latitudeObj == null ||
+                                longitudeObj == null)
+                            {
+                                Log.w(TAG, "Marker document is invalid");
+                                continue;
+                            }
+
+                            String severity = severityObj.toString();
+                            String latitude = latitudeObj.toString();
+                            String longitude = longitudeObj.toString();
+                            String comment = "";
+                            if (commentObj != null) {
+                                comment = commentObj.toString();
+                            }
 
                             DamageMarker damageMarker = new DamageMarker(
                                     Double.parseDouble(severity),
                                     Double.parseDouble(latitude),
                                     Double.parseDouble(longitude),
-                                    document.get("comment").toString());
+                                    comment);
                             markers.put(document.getId(), damageMarker);
                         }
                         // notify attached observers that something has changed
