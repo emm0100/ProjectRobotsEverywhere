@@ -1,5 +1,8 @@
 package com.example.projectrobotseverywhere;
 
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.graphics.drawable.Drawable;
 import android.location.Address;
 import android.os.Bundle;
@@ -52,6 +55,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static android.content.ContentValues.TAG;
 
@@ -64,6 +68,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
+    private final int REQUEST_ENABLE_BT = 2;
 
     // Default location set to TU/e
     private final double DEFAULT_LATITUDE = 51.4484098;
@@ -74,6 +79,10 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private IMapController mapController;
     private Map<String, DamageMarker> damageMarkers;
     private final Drawable[] markerIcons = new Drawable[11];
+
+    private Map<String, String> connectedBtDevicesMap;
+    private static CreateConnectThread createConnectThread;
+    private static BluetoothAdapter bluetoothAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,7 +113,10 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                 // if you need to show the current location, uncomment the line below
                 Manifest.permission.ACCESS_FINE_LOCATION,
                 // WRITE_EXTERNAL_STORAGE is required in order to show the map
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.BLUETOOTH,
+                Manifest.permission.BLUETOOTH_ADMIN
+                //Manifest.permission.ACCESS_BACKGROUND_LOCATION
         });
 
         searchInput = findViewById(R.id.searchText);
@@ -131,6 +143,37 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         // retrieve markers from database
         initializeMarkerIcons();
         getMarkers();
+
+        getBluetoothBondedDevices();
+        if (connectedBtDevicesMap != null) {
+            for (Map.Entry<String, String> device: connectedBtDevicesMap.entrySet()) {
+                if (device.getKey().equals("HC-05")) { //TODO: idk if this works
+                    createConnectThread = new CreateConnectThread(bluetoothAdapter, device.getValue());
+                    createConnectThread.start();
+                }
+            }
+        }
+    }
+
+    /**
+     * Get Bluetooth connected devices
+     */
+    private void getBluetoothBondedDevices() {
+        connectedBtDevicesMap = new HashMap<>();
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
+            Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
+
+            if (pairedDevices.size() > 0) {
+
+                // There are paired devices. Get the name and address of each paired device.
+                for (BluetoothDevice device : pairedDevices) {
+                    String deviceName = device.getName();
+                    String deviceHardwareAddress = device.getAddress(); // MAC address
+                    connectedBtDevicesMap.put(deviceName, deviceHardwareAddress);
+                }
+            }
+        }
     }
 
     /**
