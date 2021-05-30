@@ -293,7 +293,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         // inflate the layout of the popup window
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         View popupView = inflater.inflate(R.layout.add_marker_popup,
-                                          (ViewGroup) findViewById(android.R.id.content));
+                                          (ViewGroup) findViewById(android.R.id.content), false);
 
         // create the popup window
         int width = LinearLayout.LayoutParams.WRAP_CONTENT;
