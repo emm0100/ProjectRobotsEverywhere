@@ -11,7 +11,11 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.os.StrictMode;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -56,6 +60,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import static android.content.ContentValues.TAG;
 
@@ -80,9 +85,13 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private Map<String, DamageMarker> damageMarkers;
     private final Drawable[] markerIcons = new Drawable[11];
 
-    private Map<String, String> connectedBtDevicesMap;
+    private Map<String, String> pairedDevicesMap;
     private static CreateConnectThread createConnectThread;
     private static BluetoothAdapter bluetoothAdapter;
+    private static Handler bluetoothHandler;
+
+    private final static int CONNECTING_STATUS = 1; // used in bluetooth handler to identify message status
+    private final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -144,23 +153,80 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         initializeMarkerIcons();
         getMarkers();
 
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled()) {
+            requestTurnOnBluetooth();
+        }
         getBluetoothBondedDevices();
-        if (connectedBtDevicesMap != null) {
-            for (Map.Entry<String, String> device: connectedBtDevicesMap.entrySet()) {
-                if (device.getKey().equals("HC-05")) { //TODO: idk if this works
-                    createConnectThread = new CreateConnectThread(bluetoothAdapter, device.getValue());
-                    createConnectThread.start();
-                }
+        initializeBluetoothHandler();
+        if (pairedDevicesMap != null) {
+            // TODO: need to know name of bluetooth module
+            // Alt create thread for all bt devices
+            if (pairedDevicesMap.containsKey("HC-05")) {
+                createConnectThread = new CreateConnectThread(
+                        bluetoothAdapter,
+                        pairedDevicesMap.get("HC-05"),
+                        bluetoothHandler,
+                        this.getApplicationContext());
+                createConnectThread.start();
             }
         }
+    }
+
+    private void initializeBluetoothHandler() {
+        bluetoothHandler = new Handler(Looper.getMainLooper()) {
+            @Override
+            public void handleMessage(Message message){
+                switch (message.what){
+                    /*case CONNECTING_STATUS:
+                        switch(message.arg1){
+                            case 1:
+
+                                break;
+                            case -1:
+                                break;
+                        }
+                        break;*/
+
+                    case MESSAGE_READ:
+                        String arduinoMsg = message.obj.toString(); // Read message from Arduino
+                        arduinoMsg = arduinoMsg.toLowerCase();
+
+                        // TODO: assuming format lat:long:severity\n
+                        String[] values = arduinoMsg.split(":");
+                        String latit = values[0];
+                        String longit = values[1];
+                        String severity = values[2];
+
+                        // For testing
+                        Toast.makeText(getApplicationContext(),
+                                "Message: LAT = " + latit + " ; LONG = " + longit + " ; SEVERITY = " + severity,
+                                Toast.LENGTH_LONG)
+                                .show();
+
+                        // Add marker to database
+                        /*DamageMarker dmgMarker = new DamageMarker(
+                                Double.parseDouble(severity),
+                                Double.parseDouble(latit),
+                                Double.parseDouble(longit),
+                                "");
+                        addMarkerToFirebase(dmgMarker);
+                        */
+                        break;
+                        }
+                }
+        };
+    }
+
+    private void addMarkerToFirebase(DamageMarker damageMarker) {
+        firebaseAddMarkerAdapter.addDamageMarker(damageMarker, this.findViewById(android.R.id.content).getRootView());
     }
 
     /**
      * Get Bluetooth connected devices
      */
     private void getBluetoothBondedDevices() {
-        connectedBtDevicesMap = new HashMap<>();
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        pairedDevicesMap = new HashMap<>();
         if (bluetoothAdapter != null && bluetoothAdapter.isEnabled()) {
             Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
 
@@ -170,10 +236,16 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                 for (BluetoothDevice device : pairedDevices) {
                     String deviceName = device.getName();
                     String deviceHardwareAddress = device.getAddress(); // MAC address
-                    connectedBtDevicesMap.put(deviceName, deviceHardwareAddress);
+                    pairedDevicesMap.put(deviceName, deviceHardwareAddress);
                 }
             }
         }
+    }
+
+    // Request to turn on bluetooth if currently off
+    private void requestTurnOnBluetooth() {
+        Intent turnOnBluetooth = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+        startActivityForResult(turnOnBluetooth, 0);
     }
 
     /**

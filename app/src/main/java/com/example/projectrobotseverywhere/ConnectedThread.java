@@ -1,7 +1,10 @@
 package com.example.projectrobotseverywhere;
 
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
+import android.os.Handler;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,9 +15,15 @@ public class ConnectedThread extends Thread {
     private final InputStream mmInStream;
     private final OutputStream mmOutStream;
 
+    public Handler bluetoothHandler;
+
     private final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
 
-    public ConnectedThread(BluetoothSocket socket) {
+    public Context context;
+
+    public ConnectedThread(BluetoothSocket socket, Handler bluetoothHandler, Context context) {
+        this.context = context;
+        this.bluetoothHandler = bluetoothHandler;
         mmSocket = socket;
         InputStream tmpIn = null;
         OutputStream tmpOut = null;
@@ -44,10 +53,17 @@ public class ConnectedThread extends Thread {
                      */
                 buffer[bytes] = (byte) mmInStream.read();
                 String readMessage;
-                if (buffer[bytes] == '\n'){
-                    readMessage = new String(buffer,0,bytes);
-                    Log.e("Arduino Message",readMessage);
-                    //handler.obtainMessage(MESSAGE_READ,readMessage).sendToTarget();
+                if (buffer[bytes] == '\n'){ // termination character = \n
+
+                    readMessage = new String(buffer,0, bytes);
+                    Log.e("Arduino Message", readMessage);
+                    bluetoothHandler.obtainMessage(MESSAGE_READ, readMessage).sendToTarget();
+
+                    // for testing
+                    Toast.makeText(context,
+                            readMessage,
+                            Toast.LENGTH_LONG).show();
+
                     bytes = 0;
                 } else {
                     bytes++;
