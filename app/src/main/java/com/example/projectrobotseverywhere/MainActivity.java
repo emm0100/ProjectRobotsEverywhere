@@ -86,7 +86,6 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private final Drawable[] markerIcons = new Drawable[11];
 
     private Map<String, String> pairedDevicesMap;
-    private static CreateConnectThread createConnectThread;
     private static BluetoothAdapter bluetoothAdapter;
     private static Handler bluetoothHandler;
 
@@ -163,7 +162,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
             // TODO: need to know name of bluetooth module
             // Alt create thread for all bt devices
             if (pairedDevicesMap.containsKey("HC-05")) {
-                createConnectThread = new CreateConnectThread(
+                CreateConnectThread createConnectThread = new CreateConnectThread(
                         bluetoothAdapter,
                         pairedDevicesMap.get("HC-05"),
                         bluetoothHandler,
@@ -193,17 +192,24 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                         arduinoMsg = arduinoMsg.toLowerCase();
 
                         // TODO: assuming format lat:long:severity\n
-                        String[] values = arduinoMsg.split(":");
+                        /*String[] values = arduinoMsg.split(":");
                         String latit = values[0];
                         String longit = values[1];
-                        String severity = values[2];
+                        String severity = values[2];*/
 
-                        // For testing
                         Toast.makeText(getApplicationContext(),
-                                "Message: LAT = " + latit + " ; LONG = " + longit + " ; SEVERITY = " + severity,
+                                "Message: " + arduinoMsg,
                                 Toast.LENGTH_LONG)
                                 .show();
 
+
+
+                        // For testing
+                        /*Toast.makeText(getApplicationContext(),
+                                "Message: LAT = " + latit + " ; LONG = " + longit + " ; SEVERITY = " + severity,
+                                Toast.LENGTH_LONG)
+                                .show();
+*/
                         // Add marker to database
                         /*DamageMarker dmgMarker = new DamageMarker(
                                 Double.parseDouble(severity),

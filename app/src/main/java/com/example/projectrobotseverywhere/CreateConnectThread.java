@@ -21,7 +21,7 @@ public class CreateConnectThread extends Thread {
 
     public Handler bluetoothHandler;
     public static BluetoothSocket mmSocket;
-    public static ConnectedThread connectedThread;
+    public ConnectedThread connectedThread;
 
     private BluetoothAdapter bluetoothAdapter;
     public Context context;
