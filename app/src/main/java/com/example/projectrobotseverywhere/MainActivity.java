@@ -34,6 +34,10 @@ import android.widget.Toast;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.OnLifecycleEvent;
 
 import org.osmdroid.api.IMapController;
 import org.osmdroid.bonuspack.location.GeocoderNominatim;
@@ -55,17 +59,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 
 public class MainActivity extends AppCompatActivity implements FirebaseObserver {
 
-    // TODO: add legend maybe
-    // TODO: maybe add filters by severity / date
-
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
-    private final int REQUEST_ENABLE_BT = 2;
 
     // Default location set to TU/e
     private final double DEFAULT_LATITUDE = 51.4484098;
@@ -77,6 +78,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private Map<String, DamageMarker> damageMarkers;
     private final Drawable[] markerIcons = new Drawable[11];
 
+    private CreateConnectThread createConnectThread;
     private Map<String, String> pairedDevicesMap;
     private static BluetoothAdapter bluetoothAdapter;
     private static Handler bluetoothHandler;
@@ -129,6 +131,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         ImageButton searchButton = findViewById(R.id.searchButton);
         searchButton.setOnClickListener(view -> searchInputConfirmed());
 
+        // Add marker button onclick
         ImageButton addMarkerButton = findViewById(R.id.addMarkerButton);
         addMarkerButton.setOnClickListener(this::showAddMarkerPopup);
 
@@ -139,6 +142,10 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         initializeMarkerIcons();
         getMarkers();
 
+        startBluetoothHandling();
+    }
+
+    private void startBluetoothHandling() {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled()) {
             requestTurnOnBluetooth();
@@ -146,10 +153,8 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         getBluetoothBondedDevices();
         initializeBluetoothHandler();
         if (pairedDevicesMap != null) {
-            // TODO: need to know name of bluetooth module
-            // Alt create thread for all bt devices
             if (pairedDevicesMap.containsKey("HC-05")) {
-                CreateConnectThread createConnectThread = new CreateConnectThread(
+                createConnectThread = new CreateConnectThread(
                         bluetoothAdapter,
                         pairedDevicesMap.get("HC-05"),
                         bluetoothHandler,
@@ -163,26 +168,18 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         bluetoothHandler = new Handler(Looper.getMainLooper()) {
             @Override
             public void handleMessage(Message message){
-                switch (message.what){
-                    /*case CONNECTING_STATUS:
-                        switch(message.arg1){
-                            case 1:
-
-                                break;
-                            case -1:
-                                break;
-                        }
-                        break;*/
-
-                    case MESSAGE_READ:
+                if (message.what == MESSAGE_READ){
                         String arduinoMsg = message.obj.toString(); // Read message from Arduino
                         arduinoMsg = arduinoMsg.toLowerCase();
 
-                        // TODO: assuming format lat:long:severity\n
                         String[] values = arduinoMsg.split(":");
+
+                        // message is in the wrong format, break
                         if (values.length != 3) {
-                            break;
+                            return;
                         }
+
+                        // Extract values
                         String latitude = values[0];
                         String longitude = values[1];
                         String severity = values[2];
@@ -191,29 +188,34 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                             severity = severity.replace("\n", "");
                         }
 
+                        // TODO: remove this, just for testing
                         Toast.makeText(getApplicationContext(),
                                 "Message: " + arduinoMsg,
                                 Toast.LENGTH_LONG)
                                 .show();
 
+                        double latitudeDouble;
+                        double longitudeDouble;
+                        double severityDouble;
 
-
-                        // For testing
-                        /*Toast.makeText(getApplicationContext(),
-                                "Message: LAT = " + latit + " ; LONG = " + longit + " ; SEVERITY = " + severity,
-                                Toast.LENGTH_LONG)
-                                .show();*/
-
+                        try {
+                            latitudeDouble = Double.parseDouble(latitude);
+                            longitudeDouble = Double.parseDouble(longitude);
+                            severityDouble = Double.parseDouble(severity);
+                        }
+                        // One of the values is not a double, break
+                        catch (NumberFormatException e) {
+                            e.printStackTrace();
+                            return;
+                        }
 
                         // Add marker to database
                         DamageMarker dmgMarker = new DamageMarker(
-                                Double.parseDouble(severity),
-                                Double.parseDouble(latitude),
-                                Double.parseDouble(longitude),
+                                latitudeDouble,
+                                longitudeDouble,
+                                severityDouble,
                                 "");
                         addMarkerToFirebase(dmgMarker);
-
-                        break;
                         }
                 }
         };
@@ -340,7 +342,6 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     private void searchInputConfirmed() {
         String inputLocation = searchInput.getText().toString();
 
-
         if (!inputLocation.equals("")) {
             Callable<GeoPoint> task = () -> {
                 List<Address> addressList;
@@ -361,20 +362,22 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
             ExecutorService executor = Executors.newFixedThreadPool(1);
             Future<GeoPoint> future = executor.submit(task);
 
+            // wait for data fetch to complete
             while (!future.isDone()) {
                 try {
                     TimeUnit.MILLISECONDS.sleep(100);
                 } catch (Exception e) {
-
+                    e.printStackTrace();
                 }
             }
 
+            // move map to searched location
             if (future.isDone()) {
                 try {
                     GeoPoint inputPoint = future.get();
                     mapController.setCenter(inputPoint);
                 } catch (Exception e) {
-
+                    e.printStackTrace();
                 }
             }
         }
@@ -464,19 +467,13 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
         }
@@ -486,21 +483,13 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     @Override
     public void onResume() {
         super.onResume();
-        //this will refresh the osmdroid configuration on resuming.
-        //if you make changes to the configuration, use
-        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this));
-        map.onResume(); //needed for compass, my location overlays, v6.0.0 and up
+        map.onResume();
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        //this will refresh the osmdroid configuration on resuming.
-        //if you make changes to the configuration, use
-        //SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        //Configuration.getInstance().save(this, prefs);
-        map.onPause();  //needed for compass, my location overlays, v6.0.0 and up
+        map.onPause();
     }
 
     @Override

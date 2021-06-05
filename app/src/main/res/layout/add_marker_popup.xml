@@ -60,7 +60,8 @@
                 android:hint="1-10"
                 android:inputType="numberDecimal"
                 android:textColor="@android:color/black"
-                android:textColorHighlight="@android:color/holo_blue_bright" />
+                android:textColorHighlight="@android:color/holo_blue_bright"
+                />
         </TableRow>
 
         <TableRow
