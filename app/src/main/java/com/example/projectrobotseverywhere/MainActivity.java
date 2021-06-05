@@ -50,6 +50,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 
 public class MainActivity extends AppCompatActivity implements FirebaseObserver {
@@ -89,11 +94,6 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
 
         // init map of all DamageMarkers in the database
         damageMarkers = new HashMap<>();
-
-        // Allow network calls on main thread, temp solution
-        // TODO: should be async (java.util.concurrent)
-        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-        StrictMode.setThreadPolicy(policy);
 
         // osmdroid stuff
         Context context = getApplicationContext();
@@ -339,21 +339,44 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
      */
     private void searchInputConfirmed() {
         String inputLocation = searchInput.getText().toString();
-        List<Address> addressList;
+
 
         if (!inputLocation.equals("")) {
-            GeocoderNominatim geocoder = new GeocoderNominatim("ProjectRobotsEverywhere");
-            try {
-                addressList = geocoder.getFromLocationName(inputLocation, 1);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return;
+            Callable<GeoPoint> task = () -> {
+                List<Address> addressList;
+
+                GeocoderNominatim geocoder = new GeocoderNominatim("ProjectRobotsEverywhere");
+                try {
+                    addressList = geocoder.getFromLocationName(inputLocation, 1);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return null;
+                }
+                Address address = addressList.get(0);
+                double inputLatitude = address.getLatitude();
+                double inputLongitude = address.getLongitude();
+                GeoPoint inputPoint = new GeoPoint(inputLatitude, inputLongitude);
+                return inputPoint;
+            };
+            ExecutorService executor = Executors.newFixedThreadPool(1);
+            Future<GeoPoint> future = executor.submit(task);
+
+            while (!future.isDone()) {
+                try {
+                    TimeUnit.MILLISECONDS.sleep(100);
+                } catch (Exception e) {
+
+                }
             }
-            Address address = addressList.get(0);
-            double inputLatitude = address.getLatitude();
-            double inputLongitude = address.getLongitude();
-            GeoPoint inputPoint = new GeoPoint(inputLatitude, inputLongitude);
-            mapController.setCenter(inputPoint);
+
+            if (future.isDone()) {
+                try {
+                    GeoPoint inputPoint = future.get();
+                    mapController.setCenter(inputPoint);
+                } catch (Exception e) {
+
+                }
+            }
         }
     }
 
