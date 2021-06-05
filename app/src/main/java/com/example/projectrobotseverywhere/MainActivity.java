@@ -7,16 +7,12 @@ import android.graphics.drawable.Drawable;
 import android.location.Address;
 import android.os.Bundle;
 
-
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.StrictMode;
-import android.provider.Settings;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -39,12 +35,6 @@ import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
-
 import org.osmdroid.api.IMapController;
 import org.osmdroid.bonuspack.location.GeocoderNominatim;
 import org.osmdroid.config.Configuration;
@@ -60,9 +50,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-
-import static android.content.ContentValues.TAG;
 
 
 public class MainActivity extends AppCompatActivity implements FirebaseObserver {
@@ -192,10 +179,17 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                         arduinoMsg = arduinoMsg.toLowerCase();
 
                         // TODO: assuming format lat:long:severity\n
-                        /*String[] values = arduinoMsg.split(":");
-                        String latit = values[0];
-                        String longit = values[1];
-                        String severity = values[2];*/
+                        String[] values = arduinoMsg.split(":");
+                        if (values.length != 3) {
+                            break;
+                        }
+                        String latitude = values[0];
+                        String longitude = values[1];
+                        String severity = values[2];
+
+                        if (severity.contains("\n")) {
+                            severity = severity.replace("\n", "");
+                        }
 
                         Toast.makeText(getApplicationContext(),
                                 "Message: " + arduinoMsg,
@@ -208,16 +202,17 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                         /*Toast.makeText(getApplicationContext(),
                                 "Message: LAT = " + latit + " ; LONG = " + longit + " ; SEVERITY = " + severity,
                                 Toast.LENGTH_LONG)
-                                .show();
-*/
+                                .show();*/
+
+
                         // Add marker to database
-                        /*DamageMarker dmgMarker = new DamageMarker(
+                        DamageMarker dmgMarker = new DamageMarker(
                                 Double.parseDouble(severity),
-                                Double.parseDouble(latit),
-                                Double.parseDouble(longit),
+                                Double.parseDouble(latitude),
+                                Double.parseDouble(longitude),
                                 "");
                         addMarkerToFirebase(dmgMarker);
-                        */
+
                         break;
                         }
                 }
