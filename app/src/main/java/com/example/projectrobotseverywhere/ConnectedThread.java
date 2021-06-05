@@ -17,6 +17,8 @@ public class ConnectedThread extends Thread {
 
     public Handler bluetoothHandler;
 
+    private String lastMessage = "";
+
     private final static int MESSAGE_READ = 2; // used in bluetooth handler to identify message update
 
     public Context context;
@@ -57,6 +59,13 @@ public class ConnectedThread extends Thread {
 
                     readMessage = new String(buffer,0, bytes);
                     Log.e("Arduino Message", readMessage);
+
+                    // If the message is a copy of the previous one, ignore it
+                    if (readMessage.equals(lastMessage)) {
+                        continue;
+                    }
+
+                    lastMessage = readMessage;
                     bluetoothHandler.obtainMessage(MESSAGE_READ, readMessage).sendToTarget();
 
                     // for testing

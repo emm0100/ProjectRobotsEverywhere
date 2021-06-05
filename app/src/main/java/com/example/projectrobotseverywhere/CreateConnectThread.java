@@ -13,10 +13,6 @@ import java.util.UUID;
 import static android.content.ContentValues.TAG;
 
 public class CreateConnectThread extends Thread {
-
-    //private String deviceName = null;
-    //private String deviceAddress;
-
     // https://medium.com/swlh/create-custom-android-app-to-control-arduino-board-using-bluetooth-ff878e998aa8
 
     public Handler bluetoothHandler;

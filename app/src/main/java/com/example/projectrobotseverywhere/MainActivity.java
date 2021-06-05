@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.os.StrictMode;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -36,7 +35,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleObserver;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.OnLifecycleEvent;
 
 import org.osmdroid.api.IMapController;
@@ -59,10 +57,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 
-public class MainActivity extends AppCompatActivity implements FirebaseObserver {
+public class MainActivity extends AppCompatActivity implements FirebaseObserver, LifecycleObserver {
 
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
@@ -90,9 +87,14 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+
+
         // init firebase adapter
         firebaseAddMarkerAdapter = new FirebaseAddMarkerAdapter();
         firebaseAddMarkerAdapter.attachObserver(this);
+
+        // Allow actions upon backgrounding and foregrounding the app
+        getLifecycle().addObserver(this);
 
         // init map of all DamageMarkers in the database
         damageMarkers = new HashMap<>();
@@ -145,6 +147,35 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         startBluetoothHandling();
     }
 
+    /**
+     * Should resume bluetooth message handling
+     */
+    @OnLifecycleEvent(Lifecycle.Event.ON_START)
+    protected void onStart() {
+        super.onStart();
+        if (createConnectThread != null) {
+            createConnectThread.start();
+        } else {
+            startBluetoothHandling();
+        }
+    }
+
+    /**
+     * Should cancel bluetooth message handling
+     */
+    @OnLifecycleEvent(Lifecycle.Event.ON_STOP)
+    protected void onStop() {
+        super.onStop();
+        if (createConnectThread != null) {
+            createConnectThread.cancel();
+        }
+    }
+
+    /**
+     * Initialize bluetoothAdapter,
+     * turn on bluetooth if off
+     * get bonded devices
+     */
     private void startBluetoothHandling() {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled()) {
@@ -152,6 +183,10 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
         }
         getBluetoothBondedDevices();
         initializeBluetoothHandler();
+        setCreateConnectThreadHC05();
+    }
+
+    private void setCreateConnectThreadHC05() {
         if (pairedDevicesMap != null) {
             if (pairedDevicesMap.containsKey("HC-05")) {
                 createConnectThread = new CreateConnectThread(
@@ -160,17 +195,29 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver 
                         bluetoothHandler,
                         this.getApplicationContext());
                 createConnectThread.start();
+            } else {
+                Toast.makeText(this, "Please connect to HC-05 bluetooth module", Toast.LENGTH_LONG).show();
             }
+        } else {
+            Toast.makeText(this, "Please connect to HC-05 bluetooth module", Toast.LENGTH_LONG).show();
         }
     }
 
     private void initializeBluetoothHandler() {
         bluetoothHandler = new Handler(Looper.getMainLooper()) {
+            //private String lastMessage = "";
+
             @Override
             public void handleMessage(Message message){
                 if (message.what == MESSAGE_READ){
                         String arduinoMsg = message.obj.toString(); // Read message from Arduino
                         arduinoMsg = arduinoMsg.toLowerCase();
+
+                        /*if (arduinoMsg.equals(lastMessage)) {
+                            return;
+                        } else {
+                            lastMessage = arduinoMsg;
+                        }*/
 
                         String[] values = arduinoMsg.split(":");
 
