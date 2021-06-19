@@ -63,6 +63,8 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
 
     private FirebaseAddMarkerAdapter firebaseAddMarkerAdapter;
 
+    private List<Double[][]> known_obstacles;
+
     private final int REQUEST_PERMISSIONS_REQUEST_CODE = 1;
 
     // Default location set to TU/e
@@ -87,6 +89,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        initKnownObstacles();
 
 
         // init firebase adapter
@@ -203,6 +206,9 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
         }
     }
 
+    /**
+     * Initialize a handler that processes messages received via the bluetooth connection.
+     */
     private void initializeBluetoothHandler() {
         bluetoothHandler = new Handler(Looper.getMainLooper()) {
             //private String lastMessage = "";
@@ -212,12 +218,6 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
                 if (message.what == MESSAGE_READ){
                         String arduinoMsg = message.obj.toString(); // Read message from Arduino
                         arduinoMsg = arduinoMsg.toLowerCase();
-
-                        /*if (arduinoMsg.equals(lastMessage)) {
-                            return;
-                        } else {
-                            lastMessage = arduinoMsg;
-                        }*/
 
                         String[] values = arduinoMsg.split(":");
 
@@ -313,6 +313,9 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
         mapController.setCenter(startPoint);
     }
 
+    /**
+     * Fill an array with drawables used for the map markers.
+     */
     private void initializeMarkerIcons() {
         markerIcons[0] = this.getDrawable(R.drawable.damage_0);
         markerIcons[1] = this.getDrawable(R.drawable.damage_1);
@@ -350,6 +353,7 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
             Double severity = damageMarker.getSeverity();
             Drawable markerIcon = markerIcons[(int)Math.round(severity)];
             GeoPoint location = new GeoPoint(damageMarker.getLatitude(), damageMarker.getLongitude());
+            if (isKnownObstacle(location)) { continue; }
             addMarkerToMapView(markerIcon, location, damageMarker, markerID);
             map.invalidate();
         }
@@ -574,4 +578,49 @@ public class MainActivity extends AppCompatActivity implements FirebaseObserver,
                     REQUEST_PERMISSIONS_REQUEST_CODE);
         }
     }
+
+    /**
+     * This function is purely for testing purposes,
+     * and initializes a single obstacle that should be ignored by the application.
+     * This obstacle is a railway crossing in Eindhoven.
+     */
+    private void initKnownObstacles() {
+        known_obstacles = new ArrayList<>();
+        Double[][] railway_crossing = new Double[2][2];
+        Double[] topLeft = {51.444794, 5.506065};
+        Double[] bottomRight = {51.444712, 5.506301};
+        railway_crossing[0] = topLeft;
+        railway_crossing[1] = bottomRight;
+
+        known_obstacles.add(railway_crossing);
+    }
+
+    /**
+     * This function is purely for testing purposes.
+     * It checks the location given as a parameter against the list of know obstacles
+     * that should be ignored.
+     *
+     * If the given location falls within such an area, this data point must be ignored,
+     * so the function returns true.
+     *
+     * @param location the location to be checked
+     * @return true if the location is a known irregularity, false otherwise
+     */
+    private boolean isKnownObstacle(GeoPoint location) {
+        Double latitude = location.getLatitude();
+        Double longitude = location.getLongitude();
+
+        for (Double[][] obstacle: known_obstacles) {
+            Double[] topLeft = obstacle[0];
+            Double[] bottomRight = obstacle[1];
+            if        (latitude <= topLeft[0]
+                    && latitude >= bottomRight[0]
+                    && longitude >= topLeft[1]
+                    && longitude <= bottomRight[1]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }

@@ -44,6 +44,7 @@ public class DamageMarkerInfoWindow extends MarkerInfoWindow {
                         .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                             public void onClick(DialogInterface dialog, int id) {
                                 firebaseAddMarkerAdapter.deleteDamageMarker(markerId, mView);
+                                close();
                             }
                         })
                         .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
